@@ -1,0 +1,36 @@
+default window size:
+    x: 512
+    y: 512
+
+keep aspect ratio: no
+
+refresh rate: 60
+
+colors:
+    use four colors: yes
+    
+    mini palette:
+        - '#1e1263' # low
+        - '#3d196f' # high
+        - '#473b10' # low
+        - '#ffb100' # high
+        
+    palette:
+        - '#2c3e50' # low black
+        - '#c0392b' # low red
+        - '#27ae60' # low green
+        - '#f39c12' # low yellow
+        - '#2980b9' # low blue
+        - '#8e44ad' # low magenta
+        - '#16a085' # low cyan
+        - '#bdc3c7' # low white
+
+        - '#34495e' # high black
+        - '#e74c3c' # high red
+        - '#2ecc71' # high green
+        - '#f1c40f' # high yellow
+        - '#3498db' # high blue
+        - '#9b59b6' # high magenta
+        - '#2AA198' # high cyan
+        - '#ecf0f1' # high white
+

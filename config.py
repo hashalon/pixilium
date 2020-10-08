@@ -53,7 +53,7 @@ class Config:
 			(0x80, 0x00, 0x00), # RED     | AND      | NAND
 			(0x00, 0x80, 0x00), # GREEN   | OR       | NOR
 			(0x80, 0x80, 0x00), # YELLOW  | XOR      | XNOR
-			(0x00, 0x00, 0x80), # BLUE    | PASS     | NOT
+			(0x00, 0x00, 0x80), # BLUE    | IO       | CLOCK
 			(0x80, 0x00, 0x80), # MAGENTA | T  LATCH | D  LATCH
 			(0x00, 0x80, 0x80), # CYAN    | RS LATCH | JK LATCH
 			(0x80, 0x80, 0x80), # WHITE   | WIRE     | LIGHT
@@ -62,7 +62,7 @@ class Config:
 			(0xff, 0x00, 0x00), # RED     | AND      | NAND
 			(0x00, 0xff, 0x00), # GREEN   | OR       | NOR
 			(0xff, 0xff, 0x00), # YELLOW  | XOR      | XNOR
-			(0x00, 0x00, 0xff), # BLUE    | PASS     | NOT
+			(0x00, 0x00, 0xff), # BLUE    | IO       | CLOCK
 			(0xff, 0x00, 0xff), # MAGENTA | T  LATCH | D  LATCH
 			(0x00, 0xff, 0xff), # CYAN    | RS LATCH | JK LATCH
 			(0xff, 0xff, 0xff), # WHITE   | WIRE     | LIGHT
@@ -84,10 +84,10 @@ class Config:
 			config = yaml.load(file)
 			
 			size = config.get('default window size', None)
-			if size: self.window_size = (size['x'], size['y'])
+			if size: self.window_size = (size.get('x', 512), size.get('y', 512))
 			
-			self.keep_ratio   = config.get('keep aspect ratio', True)
-			self.refresh_rate = config.get('refresh rate'     , 60)
+			self.keep_ratio   = config.get('keep aspect ratio', self.keep_ratio)
+			self.refresh_rate = config.get('refresh rate', self.refresh_rate)
 			
 			colors = config.get('colors', {})
 			self.use_four_colors = colors.get('use four colors', False)

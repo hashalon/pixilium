@@ -66,7 +66,8 @@ def analyze_sub_gate_matrices (sub_gate, sub_wire,
 	if (gtype in GATE_TYPES 
 		and gtype == sub_gate[2, 0]
 		and gtype == sub_gate[0, 2]
-		and gtype == sub_gate[2, 2]):
+		and gtype == sub_gate[2, 2]
+		and gtype == sub_gate[1, 1]):
 				
 		# generate a new logic gate object
 		gate = Gate(gtype, position) # TODO add sprites...

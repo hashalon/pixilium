@@ -44,10 +44,21 @@ class Gate:
 		for outpt in self.outputs:
 			outpt.activate(self.active)
 	
+	
 	# draw the logic gate on the screen
 	def draw (self, screen):
 		spr = self.sprite_on if self.active else self.sprite_off
 		if spr: screen.blit(spr, self.position)
+	
+	
+	# draw the background of the wire once
+	def draw_background (self, background):
+		background.blit(self.sprite_off, self.position)
+		self.sprite_off = None # garbage collect
+	
+	# draw the foreground if necessary
+	def draw_foreground (self, screen):
+		if self.active: screen.blit(self.sprite_on, self.position)
 		
 
 # boolean operations

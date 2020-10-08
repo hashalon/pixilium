@@ -35,4 +35,13 @@ class Wire:
 	# draw the wire on the screen
 	def draw (self, screen):
 		screen.blits(self.draw_on if self.active else self.draw_off)
+	
+	# draw the background of the wire once
+	def draw_background (self, background):
+		background.blits(self.draw_off)
+		self.draw_off = None # garbage collect
+	
+	# draw the foreground if necessary
+	def draw_foreground (self, screen):
+		if self.active: screen.blits(self.draw_on)
 

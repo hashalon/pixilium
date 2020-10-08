@@ -19,6 +19,9 @@ class Board:
 		self.inputs     = inputs
 		self.keep_ratio = keep_ratio
 		
+		# draw all elements background
+		#self.draw_background()
+		
 	
 	# update the board with the provided values
 	def update (self, values=[]):
@@ -40,3 +43,25 @@ class Board:
 		else:
 			window.blit(gm.transform.scale(self.screen, size), (0, 0))
 		gm.display.update()
+	
+	
+	# optimized drawing function
+	def draw_foreground (self, window, size):
+		# draw on the screen first
+		self.screen.blit(self.background, (0, 0))
+		for gate in self.gates: gate.draw_foreground(self.screen)
+		for wire in self.wires: wire.draw_foreground(self.screen)
+		
+		if self.keep_ratio:
+			window.blit(gm.transform.scale(self.screen, size), (0, 0))
+		else:
+			window.blit(gm.transform.scale(self.screen, size), (0, 0))
+		gm.display.update()
+	
+	
+	# draw the board to the screen
+	def draw_background (self):
+		for gate in self.gates: gate.draw_background(self.background)
+		for wire in self.wires: wire.draw_background(self.background)
+	
+	

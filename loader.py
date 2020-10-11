@@ -4,10 +4,21 @@
 import numpy  as np
 import pygame as gm
 from scipy.ndimage.measurements import label
+from scipy import signal
+# use following kernel:
+# [[0, 1, 0]
+#  [1, 4, 1]
+#  [0, 1, 0]]
+# wire is output if neighbor count == 3, input if count == 1 or 2
+# (+4 at the center so that pixels belonging to the component itself are directly ignored)
+
+#from skimage.morphology import disk, dilation
+# https://stackoverflow.com/questions/47371787/counting-neighbors-in-matrix-conway-game-of-life
 
 from const  import *
 from wire   import Wire
 from gate   import Gate
+from port   import Port
 from board  import Board
 from config import Config
 
@@ -15,112 +26,114 @@ from config import Config
 # analyze indexed data to build a logic circuit
 def build (data, config=Config()):
 	wires, wire_map = make_circuitry(data, config)
-	gates = make_logic_gates(data, wires, wire_map, config)
-	inputs = []
+	gates = []
+	for gtype in GATE_TYPES:
+		gates += make_logic_gates(data, gtype, wire_map, wires, config)
 	
-	# TODO: use PASS gates as inputs at first
-	for g in gates:
-		if g.gtype == GATE_PASS:
-			inputs += g.inputs
+	ports = make_io_ports(data, wire_map, wires, config)
 	
 	# TODO: further analyze here...
 	
 	background = gm.Surface(data.shape)
 	background.fill(config.get_colors(BLOCK))
+	background.blit(make_sprite(data == CROSS, config.get_colors(CROSS)), (0, 0))
+	
 	
 	return Board(background, 
-		list(dict.fromkeys(wires)), gates, inputs, config.keep_ratio)
+		list(dict.fromkeys(wires)), gates, ports, config.keep_ratio)
 
+
+# kernel to distinguish inputs from outputs when building logic gates
+KERNEL = np.array([
+	[0, 1, 0],
+	[1, 4, 1], # [!] high value in the middle
+	[0, 1, 0]
+])
+
+# number of neighboring pixels to consider a wire an input or an output
+NEIGHBORS_INPUT  = 1
+NEIGHBORS_OUTPUT = 3
+
+
+# generate the IO ports
+def make_io_ports (data, wire_map, wires=[], config=Config()):
+	ports = [] # of generated io ports
+	nb_wires = len(wires)
+	
+	# generate labels for ports
+	port_data, port_map = make_wire_data(data, IO_PORT, config)
+	
+	# for each gate find to which wires it is connected
+	for i in range(len(port_data)):
+		
+		io_map = signal.convolve(port_map == i + 1, KERNEL, mode='same')
+		coords_out = np.fliplr(np.transpose(
+			np.where(io_map == NEIGHBORS_OUTPUT)))
+		
+		# connect output wires second (lower priority)
+		outputs = []
+		for x, y in coords_out:
+			label = wire_map[y, x] - 1
+			if 0 <= label < nb_wires:
+				output = wires[label]
+				if not output in outputs: outputs.append(output)
+				
+		pos, spr_off, spr_on = port_data[i]
+		ports.append(Port(outputs, pos, spr_off, spr_on))
+		
+	return ports
 
 
 # generate the logic gates
-def make_logic_gates (data, wires, wire_map, config=Config()):
-	sprites = {}
-	gates   = []
+def make_logic_gates (data, gtype, wire_map, wires=[], config=Config()):
+	gates = [] # list of generated gates
+	nb_wires = len(wires)
 	
-	height, width = data.shape
-	padded = np.pad(wire_map, [(1, 1), (1, 1)])
-	
-	# iterate over each pixel and try to find logic gates
-	for x in range(width - 2):
-		for y in range(height - 2):
-			# extract two 5x5 sub matrices		
-			gate = analyze_sub_gate_matrices (
-				data  [y:y + 3, x:x + 3],
-				padded[y:y + 5, x:x + 5],
-				sprites, wires, (x, y), config)
+	# generate labels and sprites for all gates
+	gate_data, gate_map = make_wire_data(data, gtype, config)
+		
+	# for each gate find to which wires it is connected
+	for i in range(len(gate_data)):
 			
-			# if a gate was generated, add it to the list
-			if gate != None: gates.append(gate)
+		# build a new gate
+		pos, spr_off, spr_on = gate_data[i]
+		gate = Gate(gtype, pos, spr_off, spr_on)
+		gates.append(gate)
+		
+		io_map = signal.convolve(gate_map == i + 1, KERNEL, mode='same')
+		
+		coords_in  = np.transpose(np.where(io_map == NEIGHBORS_INPUT ))
+		coords_out = np.transpose(np.where(io_map == NEIGHBORS_OUTPUT))
+		
+		# for each port, connect the wire to the gate
+		# connect input wires first so they have priority
+		for y, x in coords_in:
+			label = wire_map[y, x] - 1
+			if 0 <= label < nb_wires:
+				gate.add_input(wires[label])
+		
+		# connect output wires second (lower priority)
+		for y, x in coords_out:
+			label = wire_map[y, x] - 1
+			if 0 <= label < nb_wires:
+				gate.add_output(wires[label])
 	
-	# return the list of gates generated
 	return gates
 
 
-# analyze the sub matrices provided and deduce the behaviour of the logic gate in it
-def analyze_sub_gate_matrices (sub_gate, sub_wire, 
-	sprites={}, wires=[], position=(0, 0), config=Config()):
-	
-	# test if we have the four corners of a logic gate
-	gtype = sub_gate[0, 0]
-	if (gtype in GATE_TYPES 
-		and gtype == sub_gate[2, 0]
-		and gtype == sub_gate[0, 2]
-		and gtype == sub_gate[2, 2]
-		and gtype == sub_gate[1, 1]):
-				
-		# generate a new logic gate object
-		gate = Gate(gtype, position) # TODO add sprites...
-
-		# test which sides are input and which are output
-		# | 1 2 |  .  | 1 3 |  .  | 3 4 |  .  | 2 4 |
-		# | 3 4 |  .  | 2 4 |  .  | 1 2 |  .  | 1 3 |
-		sides = [
-			(sub_gate[0, 1], sub_wire), 
-			(sub_gate[1, 0], sub_wire.transpose()), 
-			(sub_gate[2, 1], np.flipud(sub_wire)), 
-			(sub_gate[1, 2], np.fliplr(sub_wire).transpose())
-		]
-		for side_g, side_w in sides:
-			if side_g != gtype: # output
-				connect_gate_to_wire(gate, wires, side_w[1, 2], False)
-			else: # input
-				connect_gate_to_wire(gate, wires, side_w[0, 1])
-				connect_gate_to_wire(gate, wires, side_w[0, 2])
-				connect_gate_to_wire(gate, wires, side_w[0, 3])
-		
-		# if the gate is connected to inputs and outputs it is valid
-		if gate.is_connected():
-			pattern = sub_gate == gtype
-			
-			# generate only one pair sprite for every pattern encountered
-			hsh = make_hash(pattern, gtype)
-			if not hsh in sprites:
-				colors = config.get_colors(gtype)
-				sprites[hsh] = make_sprites(pattern, colors[0], colors[1])
-				
-			gate.sprite_off, gate.sprite_on = sprites[hsh]
-			return gate
-	
-	# no gate here
-	return None
-
-
-# check if the label matches a wire and connect the gate to it
-def connect_gate_to_wire (gate, wires, label, is_input=True):
-	if 0 < label <= len(wires):
-		if is_input: gate.add_input (wires[label - 1])
-		else       : gate.add_output(wires[label - 1])
-
-
-
 # build the circuitry to connect components
-def make_circuitry (data, config):
+def make_circuitry (data, config=Config()):
 	# generate labels and sprites for all wires and lights
-	sprites   = {}
-	wires     = []
-	wire_map  = make_wires(data, WIRE , sprites, wires, config)
-	wire_map += make_wires(data, LIGHT, sprites, wires, config)
+	wire_data1, wire_map1 = make_wire_data(data, WIRE , config)
+	wire_data2, wire_map2 = make_wire_data(data, LIGHT, config)
+	
+	# merge the two maps into one
+	wire_map = wire_map1 + wire_map2 + (wire_map2 != 0) * len(wire_data1)
+	
+	# instanciate the wires to connect them together
+	wires = []
+	for d in wire_data1 + wire_data2:
+		wires.append(Wire().add_sprite(d[0], d[1], d[2]))
 	
 	# connect them with cross sections
 	crosses = data == CROSS
@@ -131,7 +144,7 @@ def make_circuitry (data, config):
 
 
 # group connected wires togethers
-def group_wires (crosses, wire_map, wires, transpose=False):
+def group_wires (crosses, wire_map, wires=[], transpose=False):
 	if transpose:
 		crosses  = crosses .transpose()
 		wire_map = wire_map.transpose()
@@ -142,9 +155,9 @@ def group_wires (crosses, wire_map, wires, transpose=False):
 	for i in range(height):
 	
 		# find intervals for each CROSS sequence
-		line_cross = np.concatenate(([0], crosses[i], [0]))
-		absdiff = np.abs(np.diff(line_cross))
-		ranges  = np.where(absdiff == True)[0].reshape(-1, 2)
+		linecrss = np.concatenate(([0], crosses[i], [0]))
+		absdiff  = np.abs(np.diff(linecrss))
+		ranges   = np.where(absdiff == True)[0].reshape(-1, 2)
 		
 		# find the labels to connect together
 		line_wire  = wire_map[i]
@@ -160,8 +173,9 @@ def group_wires (crosses, wire_map, wires, transpose=False):
 
 
 # generate wires used in the program
-def make_wires (data, wtype, sprites={}, wires=[], config=Config()):
-	shift = len(wires)
+def make_wire_data (data, wtype, config=Config()):
+	wire_data = [] # list of wires generated
+	sprites   = {} # store pairs of colored sprites identified by hash
 	
 	# map of wires with labels
 	wire_map, nb_wires = label(data == wtype)
@@ -170,24 +184,23 @@ def make_wires (data, wtype, sprites={}, wires=[], config=Config()):
 	for i in range(nb_wires):
 		
 		# extract wire as minimal matrix
-		wire = wire_map == i + 1
-		bbox = make_bounding_box(wire)
-		wire = wire[bbox[0]:bbox[1], bbox[2]:bbox[3]]
-		hsh  = make_hash(wire, wtype)
+		mask = wire_map == (i + 1)
+		bbox = make_bounding_box(mask)
+		wire = mask[bbox[0]:bbox[1], bbox[2]:bbox[3]]
+		hsh  = make_hash(wire)
 		
 		# generate only one sprite for each wire pattern
 		if not hsh in sprites:
 			colors = config.get_colors(wtype)
 			sprites[hsh] = make_sprites(wire, colors[0], colors[1])
 		
-		# add the newly generate wire to the list
+		# add the wire data to the list
 		spr_off, spr_on = sprites[hsh]
-		wire = Wire().add_sprite((bbox[2], bbox[0]), spr_off, spr_on)
-		wires.append(wire)
+		wire_data.append(( (bbox[2], bbox[0]), spr_off, spr_on ))
 	
-	if shift == 0: return wire_map
-	else: return wire_map + (wire_map != 0) * shift
-	
+	# return the list of wire data, and the wire map
+	return wire_data, wire_map
+
 
 # find the bounding box around a blob in a numpy matrix
 def make_bounding_box (blob):
@@ -206,11 +219,11 @@ def make_hash (wire, wtype=0):
 	
 
 # generate two colored sprites for the wire
-def make_sprites (wire, 
+def make_sprites (bool_map, 
 	color_off = (0x00, 0x00, 0x00), 
 	color_on  = (0xff, 0xff, 0xff)):
 	
-	im = wire.transpose()
+	im = bool_map.transpose()
 	pattern = gm.surfarray.make_surface(im * 0xff)
 	pattern.set_colorkey((0x00, 0x00, 0x00))
 	
@@ -225,32 +238,11 @@ def make_sprites (wire,
 	return spr_off, spr_on
 
 
-if __name__ == "__main__":
-	window = gm.display.set_mode((128, 128))
-	window.fill((255, 0, 0))
-	
-	data = np.array([
-		[4, 7, 4, 0],
-		[7, 4, 4, 7],
-		[4, 4, 4, 0],
-		[0, 7, 0, 0]
-	])
-	
-	board = build(data)
-	board.draw(window, (128, 128))
-	
-	#spr1, spr2 = make_sprites(data == 4, (0,0,128), (0,0,255))
-	#window.blit(gm.transform.scale(spr1, (32, 32)), (0, 0))
-	#window.blit(gm.transform.scale(spr2, (32, 32)), (64, 64))
-	gm.display.update()
-	
-	clock  = gm.time.Clock()
-	running = True
-	while running:
-		for evt in gm.event.get():
-			if evt.type == gm.QUIT: running = False
-		clock.tick(10)
-	
-	
-
+def make_sprite (bool_map, color=(0xff, 0xff, 0xff)):
+	im = bool_map.transpose()
+	pattern = gm.surfarray.make_surface(im * 0xff)
+	sprite  = gm.Surface(im.shape, gm.SRCALPHA)
+	sprite.blit(pattern, (0, 0))
+	sprite.fill(color, special_flags=gm.BLEND_RGBA_MULT)
+	return sprite
 

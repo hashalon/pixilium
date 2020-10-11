@@ -39,7 +39,6 @@ class Wire:
 	# draw the background of the wire once
 	def draw_background (self, background):
 		background.blits(self.draw_off)
-		self.draw_off = None # garbage collect
 	
 	# draw the foreground if necessary
 	def draw_foreground (self, screen):

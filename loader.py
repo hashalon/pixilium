@@ -5,15 +5,7 @@ import numpy  as np
 import pygame as gm
 from scipy.ndimage.measurements import label
 from scipy import signal
-# use following kernel:
-# [[0, 1, 0]
-#  [1, 4, 1]
-#  [0, 1, 0]]
-# wire is output if neighbor count == 3, input if count == 1 or 2
-# (+4 at the center so that pixels belonging to the component itself are directly ignored)
 
-#from skimage.morphology import disk, dilation
-# https://stackoverflow.com/questions/47371787/counting-neighbors-in-matrix-conway-game-of-life
 
 from const  import *
 from wire   import Wire
@@ -38,9 +30,8 @@ def build (data, config=Config()):
 	background.fill(config.get_colors(BLOCK))
 	background.blit(make_sprite(data == CROSS, config.get_colors(CROSS)), (0, 0))
 	
-	
-	return Board(background, 
-		list(dict.fromkeys(wires)), gates, ports, config.keep_ratio)
+	wires = list(dict.fromkeys(wires)) # purge duplicate occurences
+	return Board(background, wires, gates, ports, config.keep_ratio)
 
 
 # kernel to distinguish inputs from outputs when building logic gates
@@ -128,7 +119,7 @@ def make_circuitry (data, config=Config()):
 	wire_data2, wire_map2 = make_wire_data(data, LIGHT, config)
 	
 	# merge the two maps into one
-	wire_map = wire_map1 + wire_map2 + (wire_map2 != 0) * len(wire_data1)
+	wire_map = wire_map1 + wire_map2 + (data == LIGHT) * len(wire_data1)
 	
 	# instanciate the wires to connect them together
 	wires = []
@@ -136,40 +127,64 @@ def make_circuitry (data, config=Config()):
 		wires.append(Wire().add_sprite(d[0], d[1], d[2]))
 	
 	# connect them with cross sections
-	crosses = data == CROSS
-	group_wires(crosses, wire_map, wires)
-	group_wires(crosses, wire_map, wires, True)
+	group_wires(data, wire_map, wires)
+	group_wires(data, wire_map, wires, True)
 	
 	return wires, wire_map
 
 
+# there is a nasty bug here...
 # group connected wires togethers
-def group_wires (crosses, wire_map, wires=[], transpose=False):
+def group_wires (data, wire_map, wires=[], transpose=False):
 	if transpose:
-		crosses  = crosses .transpose()
+		data     = data    .transpose()
 		wire_map = wire_map.transpose()
 	
-	# iterate over each row
-	height = min(crosses.shape[0], wire_map.shape[0])
-	width  = min(crosses.shape[1], wire_map.shape[1])
-	for i in range(height):
+	# generate mapping between wires and indexes
+	mapping  = {}
+	nb_wires = len(wires)
+	for i in range(nb_wires):
+		wire = wires[i]
+		mapping[wire] = mapping.get(wire, []) + [i]
 	
-		# find intervals for each CROSS sequence
-		linecrss = np.concatenate(([0], crosses[i], [0]))
-		absdiff  = np.abs(np.diff(linecrss))
-		ranges   = np.where(absdiff == True)[0].reshape(-1, 2)
+	# iterate over each row
+	for y in range(data.shape[0]):
+		previous = -1
+		crossing = False
 		
-		# find the labels to connect together
-		line_wire  = wire_map[i]
-		for range_ in ranges:
-			imin, imax = range_
-			if 0 < imin and imax < width - 1:
-				a = line_wire[imin - 1] - 1
-				b = line_wire[imax] - 1
-				wires[b] = wires[a].merge(wires[b])
+		# for each cell in this row
+		for x in range(data.shape[1]):
+			cell  = data    [x, y]
+			label = wire_map[x, y]
+			
+			# if cell is a wire
+			if cell == WIRE or cell == LIGHT:
+			
+				# if we encountered CROSS cells, 
+				# the two wires are different and valid
+				if (crossing and previous != label 
+					and 0 < label    <= nb_wires 
+					and 0 < previous <= nb_wires):
+					
+					# merge the two wires into one
+					# and replace the old wire by the new one at all indexes
+					old = wires[previous - 1]
+					new = wires[label    - 1].merge(old)
+					for i in mapping[old]: wires[i] = new
+					mapping[new] += mapping[old]
+				
+				previous = label
+				crossing = False
+			
+			# if cell is a cross section
+			elif cell == CROSS: crossing = True
+			else: # if cell is any other cell
+				previous = -1
+				crossing = False
 	
 	# return the new reduced list of wires
 	return wires
+
 
 
 # generate wires used in the program
@@ -245,4 +260,6 @@ def make_sprite (bool_map, color=(0xff, 0xff, 0xff)):
 	sprite.blit(pattern, (0, 0))
 	sprite.fill(color, special_flags=gm.BLEND_RGBA_MULT)
 	return sprite
+
+
 

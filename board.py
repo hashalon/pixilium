@@ -22,7 +22,7 @@ class Board:
 		print("{} Ports".format(len(ports)))
 		
 		# draw all elements background
-		#self.draw_background()
+		self.draw_background()
 		
 	
 	# update the board with the provided values

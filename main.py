@@ -51,7 +51,7 @@ def main (data, config=Config()):
 		clock.tick(tick)
 		if not resizing:
 			board.update(values)
-			board.draw(window, size)
+			board.draw_foreground(window, size)
 
 
 # entry point of the program

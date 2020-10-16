@@ -23,7 +23,11 @@ class Board:
 		
 		# draw all elements background
 		self.draw_background()
-		
+	
+	
+	def get_size (self):
+		return self.screen.get_size()
+	
 	
 	# update the board with the provided values
 	def update (self, values=[]):

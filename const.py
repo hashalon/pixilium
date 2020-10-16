@@ -19,6 +19,10 @@ LATCH_RS  = 0xD
 LATCH_JK  = 0xE
 LIGHT     = 0xF
 
+WIRE_TYPES = [
+	WIRE ,
+	LIGHT
+]
 
 GATE_TYPES = [
 	GATE_AND ,

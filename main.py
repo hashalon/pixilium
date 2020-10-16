@@ -45,8 +45,9 @@ def main (data, config=Config()):
 				size = evt.dict['size']
 				resizing = True
 			elif evt.type == gm.ACTIVEEVENT:
-				window = gm.display.set_mode(size, gm.RESIZABLE)
-				resizing = False
+				if resizing:
+					window = gm.display.set_mode(size, gm.RESIZABLE)
+					resizing = False
 		
 		clock.tick(tick)
 		if not resizing:

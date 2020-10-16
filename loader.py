@@ -26,7 +26,7 @@ def build (data, config=Config()):
 	
 	# TODO: further analyze here...
 	
-	background = gm.Surface(data.shape)
+	background = gm.Surface((data.shape[1], data.shape[0]))
 	background.fill(config.get_colors(BLOCK))
 	background.blit(make_sprite(data == CROSS, config.get_colors(CROSS)), (0, 0))
 	
@@ -114,23 +114,22 @@ def make_logic_gates (data, gtype, wire_map, wires=[], config=Config()):
 
 # build the circuitry to connect components
 def make_circuitry (data, config=Config()):
-	# generate labels and sprites for all wires and lights
-	wire_data1, wire_map1 = make_wire_data(data, WIRE , config)
-	wire_data2, wire_map2 = make_wire_data(data, LIGHT, config)
-	
-	# merge the two maps into one
-	wire_map = wire_map1 + wire_map2 + (data == LIGHT) * len(wire_data1)
-	
-	# instanciate the wires to connect them together
 	wires = []
-	for d in wire_data1 + wire_data2:
-		wires.append(Wire().add_sprite(d[0], d[1], d[2]))
+	wmap  = np.zeros(data.shape, dtype=int)
+	
+	# for each type of wires generate objects for them
+	for wtype in WIRE_TYPES:
+		wire_data, wire_map = make_wire_data(data, wtype, config)
+		wmap += wire_map + (data == wtype) * len(wires)
+		
+		for t in wire_data:
+			wires.append(Wire().add_sprite(t[0], t[1], t[2]))
 	
 	# connect them with cross sections
-	group_wires(data, wire_map, wires)
-	group_wires(data, wire_map, wires, True)
+	group_wires(data, wmap, wires)
+	group_wires(data, wmap, wires, True)
 	
-	return wires, wire_map
+	return wires, wmap
 
 
 # there is a nasty bug here...
@@ -148,17 +147,17 @@ def group_wires (data, wire_map, wires=[], transpose=False):
 		mapping[wire] = mapping.get(wire, []) + [i]
 	
 	# iterate over each row
-	for y in range(data.shape[0]):
+	for y in range(data.shape[1]):
 		previous = -1
 		crossing = False
 		
 		# for each cell in this row
-		for x in range(data.shape[1]):
+		for x in range(data.shape[0]):
 			cell  = data    [x, y]
 			label = wire_map[x, y]
 			
 			# if cell is a wire
-			if cell == WIRE or cell == LIGHT:
+			if cell in WIRE_TYPES:
 			
 				# if we encountered CROSS cells, 
 				# the two wires are different and valid
@@ -207,7 +206,7 @@ def make_wire_data (data, wtype, config=Config()):
 		# generate only one sprite for each wire pattern
 		if not hsh in sprites:
 			colors = config.get_colors(wtype)
-			sprites[hsh] = make_sprites(wire, colors[0], colors[1])
+			sprites[hsh] = make_sprites(wire, colors)
 		
 		# add the wire data to the list
 		spr_off, spr_on = sprites[hsh]
@@ -231,26 +230,25 @@ def make_hash (wire, wtype=0):
 	width  = bytes([wtype, wire.shape[0]]) # width of the pattern 
 	serial = np.packbits(wire.flatten()).tostring() # serialized pattern
 	return width + serial
-	
 
-# generate two colored sprites for the wire
-def make_sprites (bool_map, 
-	color_off = (0x00, 0x00, 0x00), 
-	color_on  = (0xff, 0xff, 0xff)):
+
+# generate colored sprites for the wire
+def make_sprites (bool_map, colors=[]):
+	sprites = []
 	
+	# generate a base pattern for the sprite
 	im = bool_map.transpose()
 	pattern = gm.surfarray.make_surface(im * 0xff)
-	pattern.set_colorkey((0x00, 0x00, 0x00))
+	pattern.set_colorkey((0, 0, 0))
 	
-	spr_off = gm.Surface(im.shape, gm.SRCALPHA)
-	spr_on  = gm.Surface(im.shape, gm.SRCALPHA)
-	spr_off.blit(pattern, (0, 0))
-	spr_on .blit(pattern, (0, 0))
+	# generate a new sprite for each color
+	for color in colors:
+		sprite = gm.Surface(im.shape, gm.SRCALPHA)
+		sprite.blit(pattern, (0, 0))
+		sprite.fill(color, special_flags=gm.BLEND_RGBA_MULT)
+		sprites.append(sprite)
 	
-	spr_off.fill(color_off, special_flags=gm.BLEND_RGBA_MULT)
-	spr_on .fill(color_on , special_flags=gm.BLEND_RGBA_MULT)
-	
-	return spr_off, spr_on
+	return sprites
 
 
 def make_sprite (bool_map, color=(0xff, 0xff, 0xff)):

@@ -99,17 +99,17 @@ class Config:
 	def get_colors (self, pixel):
 		if self.use_four_colors:
 			plt = self.mini_palette
-			if   pixel == BLOCK: return  plt[0]
+			if   pixel == BLOCK: return [plt[0]]
 			elif pixel == WIRE : return [plt[2], plt[3]]
 			elif pixel == LIGHT: return [plt[2], plt[3]]
-			elif pixel == CROSS: return  plt[1]
+			elif pixel == CROSS: return [plt[1]]
 			else: return [plt[1], plt[2]]
 		else:
 			plt = self.palette
-			if   pixel == BLOCK: return  plt[BLOCK]
+			if   pixel == BLOCK: return [plt[BLOCK]]
 			elif pixel == WIRE : return [plt[CROSS], plt[WIRE ]]
 			elif pixel == LIGHT: return [plt[CROSS], plt[LIGHT]]
-			elif pixel == CROSS: return  plt[CROSS]
+			elif pixel == CROSS: return [plt[CROSS]]
 			if pixel >= 8: pixel -= 8
 			return [plt[pixel], plt[pixel + 8]]
 

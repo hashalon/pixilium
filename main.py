@@ -19,7 +19,7 @@ _imaging = Image.core
 def main (data, config=Config()):
 	
 	# generate a board that can be updated
-	board = loader.build(data, config)
+	board = loader.build_circuit_board(data, config)
 	
 	# build a resizable window
 	size   = config.window_size
@@ -52,7 +52,7 @@ def main (data, config=Config()):
 		clock.tick(tick)
 		if not resizing:
 			board.update(values)
-			board.draw_foreground(window, size)
+			board.draw(window, size)
 
 
 # entry point of the program

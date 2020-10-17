@@ -7,40 +7,43 @@ class Wire:
 	def __init__ (self):
 		self.active     = False
 		self.was_active = False
-		self.draw_off = []
-		self.draw_on  = []
+		self.stamps_off = []
+		self.stamps_on  = []
+	
 	
 	# assign the sprites to this wire
-	def add_sprite (self, position, sprite_off, sprite_on):
-		self.draw_off.append((sprite_off, position))
-		self.draw_on .append((sprite_on , position))
+	def add_stamp (self, position, stamp_off, stamp_on):
+		self.stamps_off.append((stamp_off, position))
+		self.stamps_on .append((stamp_on , position))
 		return self
+	
 	
 	# merge two wires together
 	def merge (self, other):
 		if self != other:
-			self.draw_off += other.draw_off
-			self.draw_on  += other.draw_on
+			self.stamps_off += other.stamps_off
+			self.stamps_on  += other.stamps_on
 		return self
+	
 	
 	# reset the activation of the wire for next frame
 	def update (self):
 		self.was_active = self.active
 		self.active     = False
 	
+	
 	# try to activate the wire
 	def activate (self, value):
 		self.active |= value
 	
-	# draw the wire on the screen
-	def draw (self, screen):
-		screen.blits(self.draw_on if self.active else self.draw_off)
 	
 	# draw the background of the wire once
 	def draw_background (self, background):
-		background.blits(self.draw_off)
+		background.blits(self.stamps_off)
+		self.stamps_off = None # release
+	
 	
 	# draw the foreground if necessary
-	def draw_foreground (self, screen):
-		if self.active: screen.blits(self.draw_on)
+	def draw (self, screen):
+		if self.active: screen.blits(self.stamps_on)
 

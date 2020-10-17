@@ -7,31 +7,66 @@ from scipy.ndimage.measurements import label
 from scipy import signal
 
 
-from const  import *
-from wire   import Wire
-from gate   import Gate
-from port   import Port
-from board  import Board
-from config import Config
+from const      import *
+from wire       import Wire
+from components import Gate, Port
+from board      import Board
+from config     import Config
 
 
 # analyze indexed data to build a logic circuit
-def build (data, config=Config()):
-	wires, wire_map = make_circuitry(data, config)
-	gates = []
+def build_circuit_board (data, config=Config()):
+	
+	# weave the wires into the circuit board
+	wires, label_map = weave_wires(data, config)
+	
+	# solder the components to the board
+	components = solder_components(data, label_map, wires, config)
+	
+	# purge duplicate occurences
+	wires = list(dict.fromkeys(wires))
+	
+	# make a new background for the board
+	background = draw_background(data, wires + components, config)
+	
+	return Board(background, wires, components)
+
+
+# draw the background used by the board
+def draw_background (data, objects=[], config=Config()):
+	# generate the main canvas
+	height, width = data.shape
+	background = gm.Surface((width, height))
+	background.fill(config.get_colors(BLOCK)[0])
+	
+	# draw cross sections
+	crosses = make_stamps(data == CROSS, config.get_colors(CROSS))[0]
+	background.blit(crosses, (0, 0))
+	
+	# draw the off state of all dynamic objects
+	for obj in objects: obj.draw_background(background)
+	
+	return background
+
+
+def solder_components (data, label_map, wires=[], config=Config()):
+	# generate the components
+	components = []
+	
+	# build the logic gates
 	for gtype in GATE_TYPES:
-		gates += make_logic_gates(data, gtype, wire_map, wires, config)
+		tuples = prepare_components(data, gtype, label_map, wires, config)
+		for t in tuples:
+			params = (gtype,) + t
+			components.append( Gate(*params) )
 	
-	ports = make_io_ports(data, wire_map, wires, config)
+	# ports are special types of components that can interact with the board
+	tuples = prepare_components(data, IO_PORT, label_map, wires, config)
+	for t in tuples:
+		components.append( Port(*t) )
 	
-	# TODO: further analyze here...
+	return components
 	
-	background = gm.Surface((data.shape[1], data.shape[0]))
-	background.fill(config.get_colors(BLOCK))
-	background.blit(make_sprite(data == CROSS, config.get_colors(CROSS)), (0, 0))
-	
-	wires = list(dict.fromkeys(wires)) # purge duplicate occurences
-	return Board(background, wires, gates, ports, config.keep_ratio)
 
 
 # kernel to distinguish inputs from outputs when building logic gates
@@ -46,218 +81,181 @@ NEIGHBORS_INPUT  = 1
 NEIGHBORS_OUTPUT = 3
 
 
-# generate the IO ports
-def make_io_ports (data, wire_map, wires=[], config=Config()):
-	ports = [] # of generated io ports
-	nb_wires = len(wires)
-	
-	# generate labels for ports
-	port_data, port_map = make_wire_data(data, IO_PORT, config)
-	
-	# for each gate find to which wires it is connected
-	for i in range(len(port_data)):
-		
-		io_map = signal.convolve(port_map == i + 1, KERNEL, mode='same')
-		coords_out = np.fliplr(np.transpose(
-			np.where(io_map == NEIGHBORS_OUTPUT)))
-		
-		# connect output wires second (lower priority)
-		outputs = []
-		for x, y in coords_out:
-			label = wire_map[y, x] - 1
-			if 0 <= label < nb_wires:
-				output = wires[label]
-				if not output in outputs: outputs.append(output)
-				
-		pos, spr_off, spr_on = port_data[i]
-		ports.append(Port(outputs, pos, spr_off, spr_on))
-		
-	return ports
-
-
 # generate the logic gates
-def make_logic_gates (data, gtype, wire_map, wires=[], config=Config()):
-	gates = [] # list of generated gates
-	nb_wires = len(wires)
+def prepare_components (data, cell_type, wire_label_map, wires=[], config=Config()):
+	components = [] # list of generated gates
+	nb_labels   = len(wires)
 	
 	# generate labels and sprites for all gates
-	gate_data, gate_map = make_wire_data(data, gtype, config)
+	tuples, label_map = parse_data(data, cell_type, config)
+	
+	# generate a matrix of the location of wires
+	wire_map = wire_label_map > 0
 		
 	# for each gate find to which wires it is connected
-	for i in range(len(gate_data)):
-			
-		# build a new gate
-		pos, spr_off, spr_on = gate_data[i]
-		gate = Gate(gtype, pos, spr_off, spr_on)
-		gates.append(gate)
+	for i in range(len(tuples)):
 		
-		io_map = signal.convolve(gate_map == i + 1, KERNEL, mode='same')
+		# find inputs and outputs based on number of neighbors
+		io_map = signal.convolve(label_map == i + 1, KERNEL, mode='same') * wire_map
 		
+		# order IOs in a left->right, up->down fashion
 		coords_in  = np.transpose(np.where(io_map == NEIGHBORS_INPUT ))
 		coords_out = np.transpose(np.where(io_map == NEIGHBORS_OUTPUT))
 		
-		# for each port, connect the wire to the gate
+		# for each port, connect the wire to the component
 		# connect input wires first so they have priority
+		inputs = []
 		for y, x in coords_in:
-			label = wire_map[y, x] - 1
-			if 0 <= label < nb_wires:
-				gate.add_input(wires[label])
+			label = wire_label_map[y, x] - 1
+			if 0 <= label < nb_labels:
+				inputs.append(wires[label])
 		
 		# connect output wires second (lower priority)
+		outputs = []
 		for y, x in coords_out:
-			label = wire_map[y, x] - 1
-			if 0 <= label < nb_wires:
-				gate.add_output(wires[label])
-	
-	return gates
+			label = wire_label_map[y, x] - 1
+			if 0 <= label < nb_labels:
+				outputs.append(wires[label])
+		
+		# add the new tuple to the list
+		components.append( tuples[i] + (inputs, outputs) )
+		
+	return components
 
 
 # build the circuitry to connect components
-def make_circuitry (data, config=Config()):
+def weave_wires (data, config=Config()):
 	wires = []
-	wmap  = np.zeros(data.shape, dtype=int)
+	label_map  = np.zeros(data.shape, dtype=int)
 	
 	# for each type of wires generate objects for them
 	for wtype in WIRE_TYPES:
-		wire_data, wire_map = make_wire_data(data, wtype, config)
-		wmap += wire_map + (data == wtype) * len(wires)
+		tuples, sub_map = parse_data(data, wtype, config)
+		label_map += sub_map + (data == wtype) * len(wires)
 		
-		for t in wire_data:
-			wires.append(Wire().add_sprite(t[0], t[1], t[2]))
+		for t in tuples:
+			wires.append(Wire().add_stamp(t[0], t[1], t[2]))
 	
 	# connect them with cross sections
-	group_wires(data, wmap, wires)
-	group_wires(data, wmap, wires, True)
+	link_wires(data, label_map, wires, False)
+	link_wires(data, label_map, wires, True )
 	
-	return wires, wmap
+	return wires, label_map
 
 
-# there is a nasty bug here...
 # group connected wires togethers
-def group_wires (data, wire_map, wires=[], transpose=False):
+def link_wires (data, label_map, wires=[], transpose=False):
 	if transpose:
-		data     = data    .transpose()
-		wire_map = wire_map.transpose()
+		data      = data     .transpose()
+		label_map = label_map.transpose()
 	
 	# generate mapping between wires and indexes
 	mapping  = {}
-	nb_wires = len(wires)
-	for i in range(nb_wires):
+	nb_labels = len(wires)
+	for i in range(nb_labels):
 		wire = wires[i]
 		mapping[wire] = mapping.get(wire, []) + [i]
 	
 	# iterate over each row
 	for y in range(data.shape[1]):
-		previous = -1
-		crossing = False
+		prev_label = -1
+		crossing   = False
 		
 		# for each cell in this row
 		for x in range(data.shape[0]):
-			cell  = data    [x, y]
-			label = wire_map[x, y]
+			cell_type = data     [x, y]
+			label     = label_map[x, y]
 			
 			# if cell is a wire
-			if cell in WIRE_TYPES:
+			if cell_type in WIRE_TYPES:
 			
 				# if we encountered CROSS cells, 
 				# the two wires are different and valid
-				if (crossing and previous != label 
-					and 0 < label    <= nb_wires 
-					and 0 < previous <= nb_wires):
+				if (crossing and prev_label != label 
+					and 0 < label      <= nb_labels 
+					and 0 < prev_label <= nb_labels):
 					
 					# merge the two wires into one
 					# and replace the old wire by the new one at all indexes
-					old = wires[previous - 1]
-					new = wires[label    - 1].merge(old)
+					old = wires[prev_label - 1]
+					new = wires[label      - 1].merge(old)
 					for i in mapping[old]: wires[i] = new
 					mapping[new] += mapping[old]
 				
-				previous = label
-				crossing = False
+				prev_label = label
+				crossing   = False
 			
 			# if cell is a cross section
-			elif cell == CROSS: crossing = True
+			elif cell_type == CROSS: crossing = True
 			else: # if cell is any other cell
-				previous = -1
-				crossing = False
+				prev_label = -1
+				crossing   = False
 	
 	# return the new reduced list of wires
 	return wires
 
 
 
-# generate wires used in the program
-def make_wire_data (data, wtype, config=Config()):
-	wire_data = [] # list of wires generated
-	sprites   = {} # store pairs of colored sprites identified by hash
+# return a list of tuples and the associated label map
+def parse_data (data, cell_type, config=Config()):
+	tuples = [] # list of tuples in label's order
+	stamps = {} # store pairs of colored stamps identified by hash
 	
 	# map of wires with labels
-	wire_map, nb_wires = label(data == wtype)
+	label_map, nb_objects = label(data == cell_type)
 	
 	# for each individual wire
-	for i in range(nb_wires):
+	for i in range(nb_objects):
 		
 		# extract wire as minimal matrix
-		mask = wire_map == (i + 1)
-		bbox = make_bounding_box(mask)
-		wire = mask[bbox[0]:bbox[1], bbox[2]:bbox[3]]
-		hsh  = make_hash(wire)
+		mask = label_map == (i + 1)
+		y1, y2, x1, x2 = make_bounding_box(mask)
+		pattern = mask[y1:y2, x1:x2]
+		hash_p  = make_hash(pattern)
 		
-		# generate only one sprite for each wire pattern
-		if not hsh in sprites:
-			colors = config.get_colors(wtype)
-			sprites[hsh] = make_sprites(wire, colors)
+		# optimize the total number of stamps generated
+		if not hash_p in stamps:
+			colors = config.get_colors(cell_type)
+			stamps[hash_p] = make_stamps(pattern, colors)
 		
 		# add the wire data to the list
-		spr_off, spr_on = sprites[hsh]
-		wire_data.append(( (bbox[2], bbox[0]), spr_off, spr_on ))
+		stamp_off, stamp_on = stamps[hash_p]
+		tuples.append(( (x1, y1), stamp_off, stamp_on ))
 	
-	# return the list of wire data, and the wire map
-	return wire_data, wire_map
+	# return the list of instanciated objects
+	return tuples, label_map
 
 
 # find the bounding box around a blob in a numpy matrix
-def make_bounding_box (blob):
-	rows = np.any(blob, axis=1)
-	cols = np.any(blob, axis=0)
+def make_bounding_box (pattern):
+	rows = np.any(pattern, axis=1)
+	cols = np.any(pattern, axis=0)
 	rmin, rmax = np.where(rows)[0][[0, -1]]
 	cmin, cmax = np.where(cols)[0][[0, -1]]
 	return rmin, rmax+1, cmin, cmax+1
 
 
-# generate a unique hash for each wire pattern
-def make_hash (wire, wtype=0):
-	width  = bytes([wtype, wire.shape[0]]) # width of the pattern 
-	serial = np.packbits(wire.flatten()).tostring() # serialized pattern
-	return width + serial
+# generate a unique hash for each pattern
+def make_hash (pattern, cell_type=0):
+	head   = bytes([cell_type, pattern.shape[0]])      # type and width 
+	serial = np.packbits(pattern.flatten()).tostring() # serialized pattern
+	return head + serial
 
 
-# generate colored sprites for the wire
-def make_sprites (bool_map, colors=[]):
-	sprites = []
+# generate colored stamps for objects
+def make_stamps (pattern, colors=[]):
+	stamps = []
 	
-	# generate a base pattern for the sprite
-	im = bool_map.transpose()
-	pattern = gm.surfarray.make_surface(im * 0xff)
-	pattern.set_colorkey((0, 0, 0))
+	# generate a base stamp
+	tmp = gm.surfarray.make_surface(pattern.transpose() * 0xff)
+	tmp.set_colorkey((0, 0, 0))
 	
-	# generate a new sprite for each color
+	# generate a new stamp for each color
 	for color in colors:
-		sprite = gm.Surface(im.shape, gm.SRCALPHA)
-		sprite.blit(pattern, (0, 0))
-		sprite.fill(color, special_flags=gm.BLEND_RGBA_MULT)
-		sprites.append(sprite)
+		stamp = gm.Surface(tmp.get_size(), gm.SRCALPHA)
+		stamp.blit(tmp, (0, 0))
+		stamp.fill(color, special_flags=gm.BLEND_RGBA_MULT)
+		stamps.append(stamp)
 	
-	return sprites
-
-
-def make_sprite (bool_map, color=(0xff, 0xff, 0xff)):
-	im = bool_map.transpose()
-	pattern = gm.surfarray.make_surface(im * 0xff)
-	sprite  = gm.Surface(im.shape, gm.SRCALPHA)
-	sprite.blit(pattern, (0, 0))
-	sprite.fill(color, special_flags=gm.BLEND_RGBA_MULT)
-	return sprite
-
-
+	return stamps
 

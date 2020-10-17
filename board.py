@@ -3,26 +3,25 @@
 
 import pygame as gm
 
-from wire import Wire
-from gate import Gate
+
+from components import Port
 
 
 class Board:
 	
-	def __init__ (self, background, wires=[], gates=[], ports=[], keep_ratio=True):
-		self.screen     = gm.Surface(background.get_size())
-		self.background = background
-		self.wires      = wires
-		self.gates      = gates
-		self.ports      = ports
-		self.keep_ratio = keep_ratio
+	def __init__ (self, background, wires=[], components=[]):
+		self.screen = gm.Surface(background.get_size())
+		self.back   = background
+		self.wires  = wires
+		self.comps  = []
+		self.ports  = []
 		
-		print("{} Wires".format(len(wires)))
-		print("{} Gates".format(len(gates)))
-		print("{} Ports".format(len(ports)))
+		print("{} objects instanciated".format(len(wires) + len(components)))
 		
-		# draw all elements background
-		self.draw_background()
+		# split port into a different groups so that
+		# they are given a list of input values from the board
+		for c in components:
+			(self.ports if isinstance(c, Port) else self.comps).append(c)
 	
 	
 	def get_size (self):
@@ -31,46 +30,27 @@ class Board:
 	
 	# update the board with the provided values
 	def update (self, values=[]):
+		# [!] update wires first
 		for wire in self.wires: wire.update()
-		for gate in self.gates: gate.update()
-		for port in self.ports: port.update(values)
-	
-	# draw the board to the screen
-	def draw (self, window, size):
-		
-		# draw on the screen first
-		self.screen.blit(self.background, (0, 0))
-		for port in self.ports: port.draw(self.screen)
-		for gate in self.gates: gate.draw(self.screen)
-		for wire in self.wires: wire.draw(self.screen)
-		
-		if self.keep_ratio:
-			window.blit(gm.transform.scale(self.screen, size), (0, 0))
-		else:
-			window.blit(gm.transform.scale(self.screen, size), (0, 0))
-		gm.display.update()
+		for comp in self.comps: comp.update()
+		for port in self.ports:
+			outs = port.update(values)
 	
 	
 	# optimized drawing function
-	def draw_foreground (self, window, size):
+	def draw (self, window, size, keep_ratio=False):
 		
 		# draw on the screen first
-		self.screen.blit(self.background, (0, 0))
-		for port in self.ports: port.draw_foreground(self.screen)
-		for gate in self.gates: gate.draw_foreground(self.screen)
-		for wire in self.wires: wire.draw_foreground(self.screen)
+		self.screen.blit(self.back, (0, 0))
+		for wire in self.wires: wire.draw(self.screen)
+		for comp in self.comps: comp.draw(self.screen)
+		for port in self.ports: port.draw(self.screen)
 		
-		if self.keep_ratio:
+		if keep_ratio:
 			window.blit(gm.transform.scale(self.screen, size), (0, 0))
 		else:
 			window.blit(gm.transform.scale(self.screen, size), (0, 0))
 		gm.display.update()
-	
-	
-	# draw the board to the screen
-	def draw_background (self):
-		for port in self.ports: port.draw_background(self.background)
-		for gate in self.gates: gate.draw_background(self.background)
-		for wire in self.wires: wire.draw_background(self.background)
+
 	
 	

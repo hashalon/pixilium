@@ -24,6 +24,9 @@ class Config:
 		# specify how fast the board refreshes
 		self.refresh_rate = 60
 		
+		# specify how much an extra cell on a clock affect its tickrate
+		self.clock_tickrate = 10
+		
 		# inputs used to interact with the circuits
 		self.input_keys = [
 			gm.K_1,

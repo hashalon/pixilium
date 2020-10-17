@@ -2,8 +2,12 @@
 
 
 import sys
-from os  import path
+import os
 from PIL import Image
+
+# remove greeting message
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
 import numpy  as np
 import pygame as gm
 
@@ -59,7 +63,7 @@ def main (data, config=Config()):
 if __name__ == "__main__":
 	if len(sys.argv) >= 2: 
 		input_file = sys.argv[1]
-		if path.exists(input_file):
+		if os.path.exists(input_file):
 			image = Image.open(input_file)
 			data  = np.array(image)
 			if data.ndim == 2:
@@ -74,7 +78,7 @@ if __name__ == "__main__":
 				# analyze command line arguments
 				if len(sys.argv) >= 3:
 					config_file = sys.argv[2]
-					if path.exists(config_file):
+					if os.path.exists(config_file):
 						config.load_from_file(config_file)
 				
 				# run the program

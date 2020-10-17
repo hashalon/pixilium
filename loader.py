@@ -9,7 +9,7 @@ from scipy import signal
 
 from const      import *
 from wire       import Wire
-from components import Gate, Port
+from components import *
 from board      import Board
 from config     import Config
 
@@ -49,6 +49,10 @@ def draw_background (data, objects=[], config=Config()):
 	return background
 
 
+# this is the minimal size a component can have
+MIN_COMP_SIZE = 5
+
+
 def solder_components (data, label_map, wires=[], config=Config()):
 	# generate the components
 	components = []
@@ -56,14 +60,28 @@ def solder_components (data, label_map, wires=[], config=Config()):
 	# build the logic gates
 	for gtype in GATE_TYPES:
 		tuples = prepare_components(data, gtype, label_map, wires, config)
-		for t in tuples:
-			params = (gtype,) + t
-			components.append( Gate(*params) )
+		for pos, stamp, nb, ins, outs in tuples:
+			if nb >= MIN_COMP_SIZE:
+				components.append( Gate(gtype, pos, stamp[0], stamp[1], ins, outs) )
 	
-	# ports are special types of components that can interact with the board
+	# build IO ports
 	tuples = prepare_components(data, IO_PORT, label_map, wires, config)
-	for t in tuples:
-		components.append( Port(*t) )
+	for pos, stamp, nb, ins, outs in tuples:
+		if nb >= MIN_COMP_SIZE:
+			components.append( Port(pos, stamp[0], stamp[1], ins, outs) )
+	
+	# build clocks
+	tuples = prepare_components(data, CLOCK, label_map, wires, config)
+	for pos, stamp, nb, ins, outs in tuples:
+		if nb >= MIN_COMP_SIZE:
+			ticks = (nb - MIN_COMP_SIZE) * config.clock_tickrate
+			if ticks <= 0: ticks = 2
+			components.append( Clock(ticks, pos, stamp[0], stamp[1], ins, outs) )
+	
+	tuples = prepare_components(data, LATCH_T, label_map, wires, config)
+	for pos, stamp, nb, ins, outs in tuples:
+		if nb >= MIN_COMP_SIZE:
+			components.append( ToggleLatch(pos, stamp[0], stamp[1], ins, outs) )
 	
 	return components
 	
@@ -86,7 +104,7 @@ def prepare_components (data, cell_type, wire_label_map, wires=[], config=Config
 	components = [] # list of generated gates
 	nb_labels   = len(wires)
 	
-	# generate labels and sprites for all gates
+	# generate labels and stamps for all components
 	tuples, label_map = parse_data(data, cell_type, config)
 	
 	# generate a matrix of the location of wires
@@ -96,9 +114,13 @@ def prepare_components (data, cell_type, wire_label_map, wires=[], config=Config
 	for i in range(len(tuples)):
 		
 		# find inputs and outputs based on number of neighbors
-		io_map = signal.convolve(label_map == i + 1, KERNEL, mode='same') * wire_map
+		pattern = label_map == i + 1
+		
+		# count the number of cells used by the component
+		nb_cells = np.count_nonzero(pattern)
 		
 		# order IOs in a left->right, up->down fashion
+		io_map = signal.convolve(pattern, KERNEL, mode='same') * wire_map
 		coords_in  = np.transpose(np.where(io_map == NEIGHBORS_INPUT ))
 		coords_out = np.transpose(np.where(io_map == NEIGHBORS_OUTPUT))
 		
@@ -118,7 +140,7 @@ def prepare_components (data, cell_type, wire_label_map, wires=[], config=Config
 				outputs.append(wires[label])
 		
 		# add the new tuple to the list
-		components.append( tuples[i] + (inputs, outputs) )
+		components.append( tuples[i] + (nb_cells, inputs, outputs) )
 		
 	return components
 
@@ -133,8 +155,8 @@ def weave_wires (data, config=Config()):
 		tuples, sub_map = parse_data(data, wtype, config)
 		label_map += sub_map + (data == wtype) * len(wires)
 		
-		for t in tuples:
-			wires.append(Wire().add_stamp(t[0], t[1], t[2]))
+		for position, stamp in tuples:
+			wires.append(Wire().add_stamp(position, stamp[0], stamp[1]))
 	
 	# connect them with cross sections
 	link_wires(data, label_map, wires, False)
@@ -219,8 +241,8 @@ def parse_data (data, cell_type, config=Config()):
 			stamps[hash_p] = make_stamps(pattern, colors)
 		
 		# add the wire data to the list
-		stamp_off, stamp_on = stamps[hash_p]
-		tuples.append(( (x1, y1), stamp_off, stamp_on ))
+		stamp = stamps[hash_p]
+		tuples.append(( (x1, y1), stamp ))
 	
 	# return the list of instanciated objects
 	return tuples, label_map

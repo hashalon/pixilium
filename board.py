@@ -16,7 +16,7 @@ class Board:
 		self.comps  = []
 		self.ports  = []
 		
-		print("{} objects instanciated".format(len(wires) + len(components)))
+		#print("{} objects instanciated".format(len(wires) + len(components)))
 		
 		# split port into a different groups so that
 		# they are given a list of input values from the board

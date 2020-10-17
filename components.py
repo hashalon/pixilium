@@ -63,7 +63,7 @@ class Gate (Component):
 			outpt.activate(self.active)
 	
 
-# input output ports
+# input/output ports
 class Port (Component):
 	
 	# update the values on each individual output wire
@@ -76,5 +76,54 @@ class Port (Component):
 		
 		# process values entering the port
 		return [inpt.was_active for inpt in self.inputs]
+
+
+# emit signal every X tick
+class Clock (Component):
+	
+	# generate a new logic gate
+	def __init__ (self, ticks, position=(0,0), stamp_off=None, stamp_on=None, inputs=[], outputs=[]):
+		super().__init__(position, stamp_off, stamp_on, inputs, outputs)
+		self.counter = 0
+		self.ticks   = ticks
+
+	
+	# update the state of the logic gate and connected wires
+	def update (self):
+		
+		# detect if one of the inputs is active
+		self.active = False
+		for inpt in self.inputs:
+			if inpt.was_active:
+				self.active = True
+				break
+		
+		# check if the Clock should emit a signal or not
+		activate = False
+		if not self.active:
+			self.counter += 1
+			if self.counter >= self.ticks:
+				activate     = True
+				self.active  = True
+				self.counter = 0
+		
+		# transmit signal to outputs
+		for outpt in self.outputs:
+			outpt.activate(activate)
+
+
+# the four kinds of latch
+class ToggleLatch (Component):
+	
+	# update the values on each individual output wire
+	def update (self):
+		values = [inpt.was_active for inpt in self.inputs]
+		
+		# toggle the value of active
+		if True in values: self.active = not self.active
+		
+		for outpt in self.outputs:
+			outpt.activate(self.active)
+		
 
 

@@ -7,6 +7,19 @@ import itertools
 from const import *
 
 
+def get_value_of_inputs (inputs=[]):
+	for i in inputs:
+		if i.was_active:
+			return True
+	return False
+
+
+def set_value_of_outputs (outputs=[], value=False):
+	for o in outputs:
+		o.activate(value)
+	return value
+
+
 # base class for building components
 class Component:
 	
@@ -16,6 +29,9 @@ class Component:
 		self.position  = position
 		self.stamp_off = stamp_off
 		self.stamp_on  = stamp_on
+		
+		# [?] we don't use the list(dict.fromkeys([])) 
+		# to keep the same order of elements.
 		
 		# add outputs first for higher priority
 		self.outputs = []
@@ -59,8 +75,7 @@ class Gate (Component):
 	def update (self):
 		values = [inpt.was_active for inpt in self.inputs]
 		self.active = self.operation(values)
-		for outpt in self.outputs:
-			outpt.activate(self.active)
+		set_value_of_outputs(self.outputs, self.active)
 	
 
 # input/output ports
@@ -92,11 +107,7 @@ class Clock (Component):
 	def update (self):
 		
 		# detect if one of the inputs is active
-		self.active = False
-		for inpt in self.inputs:
-			if inpt.was_active:
-				self.active = True
-				break
+		self.active = get_value_of_inputs(self.inputs)
 		
 		# check if the Clock should emit a signal or not
 		activate = False
@@ -108,22 +119,67 @@ class Clock (Component):
 				self.counter = 0
 		
 		# transmit signal to outputs
-		for outpt in self.outputs:
-			outpt.activate(activate)
+		set_value_of_outputs(self.outputs, activate)
+
+
+# how many contact points there should be to concider a input as a clock
+NB_CONTACTS_CLOCK_INPUT = 3
 
 
 # the four kinds of latch
-class ToggleLatch (Component):
+class Latch (Component):
+	
+	# complete override to count 
+	def __init__ (self, cell_type, position=(0,0), stamp_off=None, stamp_on=None, inputs=[], outputs=[]):
+		self.active    = False
+		self.position  = position
+		self.stamp_off = stamp_off
+		self.stamp_on  = stamp_on
+		self.prev_in1  = False
+		self.prev_in2  = False
+		
+		# add outputs first for higher priority
+		outs = []
+		for o in outputs:
+			if not o in outs:
+				outs.append(o)
+		self.outputs1 = outs[ ::2]
+		self.outputs2 = outs[1::2]
+		
+		# count the number of contacts for each input
+		counts = {}
+		for i in inputs:
+			if not i in outs:
+				counts[i] = counts.get(i, 0) + 1
+		
+		# sort inputs based on the number of contact points
+		ins = []
+		self.clocks = []
+		for i in inputs:
+			count = counts.get(i, 0)
+			if count >= NB_CONTACTS_CLOCK_INPUT:
+				self.clocks.append(i)
+				del counts[i]
+			elif 0 < count:
+				ins.append(i)
+				del counts[i]
+		self.inputs1 = ins[ ::2]
+		self.inputs2 = ins[1::2]
+		
+		# get the operation to use based on the type of the cell
+		self.operation = LATCH_FUNCTIONS[cell_type]
 	
 	# update the values on each individual output wire
 	def update (self):
-		values = [inpt.was_active for inpt in self.inputs]
+		clock  = get_value_of_inputs(self.clocks )
+		value1 = get_value_of_inputs(self.inputs1)
+		value2 = get_value_of_inputs(self.inputs2)
 		
-		# toggle the value of active
-		if True in values: self.active = not self.active
+		self.active = self.operation(value1, value2, clock, self.active, self.prev_in1, self.prev_in2)
+		self.prev_in1 = value1
+		self.prev_in2 = value2
 		
-		for outpt in self.outputs:
-			outpt.activate(self.active)
-		
+		set_value_of_outputs(self.outputs1,     self.active)
+		set_value_of_outputs(self.outputs2, not self.active)
 
 

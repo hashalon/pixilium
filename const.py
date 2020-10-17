@@ -33,6 +33,13 @@ GATE_TYPES = [
 	GATE_XNOR
 ]
 
+LATCH_TYPES = [
+	LATCH_T ,
+	LATCH_RS,
+	LATCH_D ,
+	LATCH_JK
+]
+
 
 # boolean operations
 def gate_nand (values): return not gate_and(values)
@@ -50,4 +57,33 @@ GATE_FUNCTIONS = {
 	GATE_NAND : gate_nand,
 	GATE_NOR  : gate_nor ,
 	GATE_XNOR : gate_xnor
+}
+
+
+# latches behaviors
+
+def latch_t (in1, in2, clock, prev, prev_in1, prev_in2):
+	return not prev if (in1 or in2) and not (prev_in1 or prev_in2) else prev
+
+def latch_rs (in1, in2, clock, prev, prev_in1, prev_in2):
+	in1 = in1 and not prev_in1
+	in2 = in2 and not prev_in2
+	
+	if in1 and in2: return not prev # toggle every frame
+	elif in1: return True
+	elif in2: return False
+	else: return prev
+
+def latch_d (in1, in2, clock, prev, prev_in1, prev_in2):
+	return in1 or in2 if clock else prev
+
+def latch_jk (in1, in2, clock, prev, prev_in1, prev_in2):
+	return latch_rs(in1, in2, clock, prev, prev_in1, prev_in2) if clock else prev
+
+
+LATCH_FUNCTIONS = {
+	LATCH_T  : latch_t ,
+	LATCH_RS : latch_rs,
+	LATCH_D  : latch_d ,
+	LATCH_JK : latch_jk
 }

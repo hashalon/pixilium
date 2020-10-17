@@ -78,10 +78,12 @@ def solder_components (data, label_map, wires=[], config=Config()):
 			if ticks <= 0: ticks = 2
 			components.append( Clock(ticks, pos, stamp[0], stamp[1], ins, outs) )
 	
-	tuples = prepare_components(data, LATCH_T, label_map, wires, config)
-	for pos, stamp, nb, ins, outs in tuples:
-		if nb >= MIN_COMP_SIZE:
-			components.append( ToggleLatch(pos, stamp[0], stamp[1], ins, outs) )
+	# build the memory latches
+	for ltype in LATCH_TYPES:
+		tuples = prepare_components(data, ltype, label_map, wires, config)
+		for pos, stamp, nb, ins, outs in tuples:
+			if nb >= MIN_COMP_SIZE:
+				components.append( Latch(ltype, pos, stamp[0], stamp[1], ins, outs) )
 	
 	return components
 	
@@ -102,7 +104,7 @@ NEIGHBORS_OUTPUT = 3
 # generate the logic gates
 def prepare_components (data, cell_type, wire_label_map, wires=[], config=Config()):
 	components = [] # list of generated gates
-	nb_labels   = len(wires)
+	nb_labels  = len(wires)
 	
 	# generate labels and stamps for all components
 	tuples, label_map = parse_data(data, cell_type, config)

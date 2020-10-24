@@ -73,7 +73,7 @@ if __name__ == "__main__":
 				config = Config()
 				
 				# load a default palette from the picture itself
-				config.load_from_palette(image.getpalette())
+				#config.load_from_palette(image.getpalette())
 				
 				# analyze command line arguments
 				if len(sys.argv) >= 3:

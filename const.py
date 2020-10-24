@@ -2,28 +2,34 @@
 
 
 # define the different types of pixel value to analyze
-BLOCK     = 0x0
-GATE_AND  = 0x1
-GATE_OR   = 0x2
-GATE_XOR  = 0x3
-IO_PORT   = 0x4
-LATCH_T   = 0x5
-LATCH_D   = 0x6
-WIRE      = 0x7
-CROSS     = 0x8
-GATE_NAND = 0x9
-GATE_NOR  = 0xA
-GATE_XNOR = 0xB
-CLOCK     = 0xC
-LATCH_RS  = 0xD
-LATCH_JK  = 0xE
-LIGHT     = 0xF
+BLOCK = 0
+CROSS = 1
+WIRE  = 2
+LIGHT = 3
+
+GATE_AND  = 4
+GATE_OR   = 5
+GATE_XOR  = 6
+GATE_NAND = 7
+GATE_NOR  = 8
+GATE_XNOR = 9
+
+IO_PORT = 10
+CLOCK   = 11
+
+LATCH_T  = 12
+LATCH_RS = 13
+LATCH_D  = 14
+LATCH_JK = 15
+
+MEMORY = 16
+JUMPER = 17
+
 
 WIRE_TYPES = [
 	WIRE ,
 	LIGHT
 ]
-
 GATE_TYPES = [
 	GATE_AND ,
 	GATE_OR  ,
@@ -32,12 +38,17 @@ GATE_TYPES = [
 	GATE_NOR ,
 	GATE_XNOR
 ]
-
 LATCH_TYPES = [
 	LATCH_T ,
 	LATCH_RS,
 	LATCH_D ,
 	LATCH_JK
+]
+STATIC_TYPES = [
+	BLOCK ,
+	CROSS ,
+	MEMORY,
+	JUMPER
 ]
 
 
@@ -50,18 +61,7 @@ def gate_or   (values): return True in values
 def gate_xor  (values): return values.count(True) == len(values) / 2
 
 
-GATE_FUNCTIONS = {
-	GATE_AND  : gate_and ,
-	GATE_OR   : gate_or  ,
-	GATE_XOR  : gate_xor ,
-	GATE_NAND : gate_nand,
-	GATE_NOR  : gate_nor ,
-	GATE_XNOR : gate_xnor
-}
-
-
 # latches behaviors
-
 def latch_t (in1, in2, clock, prev, prev_in1, prev_in2):
 	return not prev if (in1 or in2) and not (prev_in1 or prev_in2) else prev
 
@@ -80,6 +80,15 @@ def latch_d (in1, in2, clock, prev, prev_in1, prev_in2):
 def latch_jk (in1, in2, clock, prev, prev_in1, prev_in2):
 	return latch_rs(in1, in2, clock, prev, prev_in1, prev_in2) if clock else prev
 
+
+GATE_FUNCTIONS = {
+	GATE_AND  : gate_and ,
+	GATE_OR   : gate_or  ,
+	GATE_XOR  : gate_xor ,
+	GATE_NAND : gate_nand,
+	GATE_NOR  : gate_nor ,
+	GATE_XNOR : gate_xnor
+}
 
 LATCH_FUNCTIONS = {
 	LATCH_T  : latch_t ,

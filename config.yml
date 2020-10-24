@@ -6,31 +6,44 @@ keep aspect ratio: no
 
 refresh rate: 60
 
-colors:
-    use four colors: yes
-    
-    mini palette:
-        - '#1e1263' # low
-        - '#3d196f' # high
-        - '#473b10' # low
-        - '#ffb100' # high
+palettes:
+	low:
+        - 000000 # BLOCK
+        - 404040 # CROSS
+        - 404000 # WIRE
+        - 404040 # LIGHT
+        - 800000 # AND
+        - 008000 # OR
+        - 000080 # XOR
+        - 008080 # NAND
+        - 800080 # NOR
+        - 808000 # XNOR
+        - 004080 # IO PORT
+        - 400080 # CLOCK
+        - 804000 # T--LATCH
+        - 408000 # RS-LATCH
+        - 800040 # D--LATCH
+        - 008040 # JK-LATCH
+        - 004000 # MEMORY
+        - 400000 # JUMPER
         
-    palette:
-        - '#2c3e50' # low black
-        - '#c0392b' # low red
-        - '#27ae60' # low green
-        - '#f39c12' # low yellow
-        - '#2980b9' # low blue
-        - '#8e44ad' # low magenta
-        - '#16a085' # low cyan
-        - '#bdc3c7' # low white
-
-        - '#34495e' # high black
-        - '#e74c3c' # high red
-        - '#2ecc71' # high green
-        - '#f1c40f' # high yellow
-        - '#3498db' # high blue
-        - '#9b59b6' # high magenta
-        - '#2AA198' # high cyan
-        - '#ecf0f1' # high white
+    high:
+        - 000000 # BLOCK
+        - 404040 # CROSS
+        - ffff80 # WIRE
+        - ffffff # LIGHT
+        - ff0000 # AND
+        - 00ff00 # OR
+        - 0000ff # XOR
+        - 00ffff # NAND
+        - ff00ff # NOR
+        - ffff00 # XNOR
+        - 0080ff # IO PORT
+        - 8000ff # CLOCK
+        - ff8000 # T--LATCH
+        - 80ff00 # RS-LATCH
+        - ff0080 # D--LATCH
+        - 00ff80 # JK-LATCH
+        - 004000 # MEMORY
+        - 400000 # JUMPER
 

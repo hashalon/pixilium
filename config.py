@@ -41,44 +41,56 @@ class Config:
 			gm.K_0
 		]
 		
-		# specify if we use a simpler color palette
-		self.use_four_colors = False
-		
 		# colors palettes
-		self.mini_palette = [
-			(0x00, 0x00, 0x00), # low
-			(0x40, 0x40, 0x40), # high
-			(0x80, 0x80, 0x80), # low
-			(0xff, 0xff, 0xff), # high
+		self.palette_low = [
+			(0x00, 0x00, 0x00), # BLOCK
+			(0x40, 0x40, 0x40), # CROSS
+			(0x40, 0x40, 0x00), # WIRE
+			(0x40, 0x40, 0x40), # LIGHT
+			(0x80, 0x00, 0x00), # AND
+			(0x00, 0x80, 0x00), # OR
+			(0x30, 0x30, 0x80), # XOR
+			(0x00, 0x80, 0x80), # NAND
+			(0x80, 0x00, 0x80), # NOR
+			(0x80, 0x80, 0x00), # XNOR
+			(0x00, 0x40, 0x80), # IO PORT
+			(0x40, 0x00, 0x80), # CLOCK
+			(0x80, 0x40, 0x00), # T--LATCH
+			(0x60, 0xb0, 0x00), # RS-LATCH
+			(0x80, 0x00, 0x40), # D--LATCH
+			(0x00, 0x80, 0x40), # JK-LATCH
+			(0x00, 0x40, 0x00), # MEMORY
+			(0x40, 0x00, 0x00)  # JUMPER
 		]
-		self.palette = [
-			(0x00, 0x00, 0x00), # BLACK   | BLOCK    | CROSS
-			(0x80, 0x00, 0x00), # RED     | AND      | NAND
-			(0x00, 0x80, 0x00), # GREEN   | OR       | NOR
-			(0x80, 0x80, 0x00), # YELLOW  | XOR      | XNOR
-			(0x00, 0x00, 0x80), # BLUE    | IO       | CLOCK
-			(0x80, 0x00, 0x80), # MAGENTA | T  LATCH | D  LATCH
-			(0x00, 0x80, 0x80), # CYAN    | RS LATCH | JK LATCH
-			(0x80, 0x80, 0x80), # WHITE   | WIRE     | LIGHT
-			
-			(0x40, 0x40, 0x40), # BLACK   | BLOCK    | CROSS
-			(0xff, 0x00, 0x00), # RED     | AND      | NAND
-			(0x00, 0xff, 0x00), # GREEN   | OR       | NOR
-			(0xff, 0xff, 0x00), # YELLOW  | XOR      | XNOR
-			(0x00, 0x00, 0xff), # BLUE    | IO       | CLOCK
-			(0xff, 0x00, 0xff), # MAGENTA | T  LATCH | D  LATCH
-			(0x00, 0xff, 0xff), # CYAN    | RS LATCH | JK LATCH
-			(0xff, 0xff, 0xff), # WHITE   | WIRE     | LIGHT
+		self.palette_high = [
+			(0x00, 0x00, 0x00), # BLOCK
+			(0x40, 0x40, 0x40), # CROSS
+			(0xff, 0xff, 0x80), # WIRE
+			(0xff, 0xff, 0xff), # LIGHT
+			(0xff, 0x00, 0x00), # AND
+			(0x00, 0xff, 0x00), # OR
+			(0x30, 0x30, 0xff), # XOR
+			(0x00, 0xff, 0xff), # NAND
+			(0xff, 0x00, 0xff), # NOR
+			(0xe0, 0xe0, 0x00), # XNOR
+			(0x00, 0x80, 0xff), # IO PORT
+			(0x80, 0x00, 0xff), # CLOCK
+			(0xff, 0x80, 0x00), # T--LATCH
+			(0x80, 0xff, 0x00), # RS-LATCH
+			(0xff, 0x00, 0x80), # D--LATCH
+			(0x00, 0xff, 0x80), # JK-LATCH
+			(0x00, 0x40, 0x00), # MEMORY
+			(0x40, 0x00, 0x00)  # JUMPER
 		]
 	
 	
 	# load colors from the PNG palette
-	def load_from_palette (self, plt):
-		nb = min(len(self.palette), len(plt) / 3)
-		for i in range(nb):
-			j = i * 3
-			color = (plt[j], plt[j + 1], plt[j + 2])
-			self.palette[i] = color
+	#def load_from_palette (self, plt):
+	#	nb = min(len(self.palette), len(plt) / 3)
+	#	for i in range(nb):
+	#		j = i * 3
+	#		color = (plt[j], plt[j + 1], plt[j + 2])
+	#		self.palette[i] = color
 	
 	
 	# load config from YAML file
@@ -92,29 +104,15 @@ class Config:
 			self.keep_ratio   = config.get('keep aspect ratio', self.keep_ratio)
 			self.refresh_rate = config.get('refresh rate', self.refresh_rate)
 			
-			colors = config.get('colors', {})
-			self.use_four_colors = colors.get('use four colors', False)
-			load_color_list(colors.get('mini palette', []), self.mini_palette)
-			load_color_list(colors.get('palette'     , []), self.palette     )
+			palettes = config.get('palettes', {})
+			load_color_list(palettes.get('low' , []), self.palette_low )
+			load_color_list(palettes.get('high', []), self.palette_high)
 	
 	
 	# return the colors to use for each type of object
 	def get_colors (self, pixel):
-		if self.use_four_colors:
-			plt = self.mini_palette
-			if   pixel == BLOCK: return [plt[0]]
-			elif pixel == WIRE : return [plt[2], plt[3]]
-			elif pixel == LIGHT: return [plt[2], plt[3]]
-			elif pixel == CROSS: return [plt[1]]
-			else: return [plt[1], plt[2]]
-		else:
-			plt = self.palette
-			if   pixel == BLOCK: return [plt[BLOCK]]
-			elif pixel == WIRE : return [plt[CROSS], plt[WIRE ]]
-			elif pixel == LIGHT: return [plt[CROSS], plt[LIGHT]]
-			elif pixel == CROSS: return [plt[CROSS]]
-			if pixel >= 8: pixel -= 8
-			return [plt[pixel], plt[pixel + 8]]
+		if pixel in STATIC_TYPES: return [self.palette_low[pixel]]
+		else: return [self.palette_low [pixel], self.palette_high[pixel]]
 
 
 
@@ -128,17 +126,15 @@ def load_color_list (colors_in, colors_out):
 		# analyze input string
 		str_in = colors_in[i]
 		
-		# if string is of format #000000
-		if str_in.startswith('#'): 
-			str_in = str_in[1:]
+		# if string starts with '#', remove it
+		if str_in.startswith('#'): str_in = str_in[1:]
 			
-			# if hex string is of the format #000
-			if len(str_in) == 3:
-				str_in = ''.join([c * 2 for c in str_in])
+		# if hex string is of the format #000
+		if len(str_in) == 3:
+			str_in = ''.join([c * 2 for c in str_in])
 			
-			# convert hex string into a tuple
-			colors_out[i] = struct.unpack('BBB', 
-				bytes.fromhex(str_in))
+		# convert hex string into a tuple
+		colors_out[i] = struct.unpack('BBB', bytes.fromhex(str_in))
 
 
 

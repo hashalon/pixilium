@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
+from const import get_value_of_inputs, set_value_of_outputs
 
-from components.component import Component, get_value_of_inputs, set_value_of_outputs
+from components.component import Component
 
 
 # emit signal every X tick

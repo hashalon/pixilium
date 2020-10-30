@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 
-from const import GATE_AND, GATE_OR, GATE_XOR, GATE_NAND, GATE_NOR, GATE_XNOR
-from components.component import Component, get_value_of_inputs, set_value_of_outputs
+from const import *
+from components.component import Component
 
 
 # boolean operations

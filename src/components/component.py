@@ -1,19 +1,6 @@
 #!/usr/bin/python
 
 
-def get_value_of_inputs (inputs=[]):
-	for i in inputs:
-		if i.was_active:
-			return True
-	return False
-
-
-def set_value_of_outputs (outputs=[], value=False):
-	for o in outputs:
-		o.activate(value)
-	return value
-
-
 # base class for building components
 class Component:
 	

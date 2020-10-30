@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 
-from const import LATCH_T, LATCH_RS, LATCH_D, LATCH_JK
-from components.component import Component, get_value_of_inputs, set_value_of_outputs
+from const import *
+from components.component import Component
 
 
 # how many contact points there should be to concider a input as a clock

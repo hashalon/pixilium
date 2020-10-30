@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 
-# a single memory cell
+# a matrix of memory cells
 class Memory:
 	
 	# generate a new logic lane

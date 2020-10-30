@@ -4,7 +4,7 @@
 import pygame as gm
 
 
-from components import Port
+from components.port import Port
 
 
 class Board:

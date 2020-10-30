@@ -111,8 +111,7 @@ class Config:
 	
 	# return the colors to use for each type of object
 	def get_colors (self, pixel):
-		if pixel in STATIC_TYPES: return [self.palette_low[pixel]]
-		else: return [self.palette_low [pixel], self.palette_high[pixel]]
+		return self.palette_low [pixel], self.palette_high[pixel]
 
 
 

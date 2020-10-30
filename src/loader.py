@@ -7,11 +7,16 @@ from scipy.ndimage.measurements import label
 from scipy import signal
 
 
-from const      import *
-from wire       import Wire
-from components import *
-from board      import Board
-from config     import Config
+from const  import *
+from wire   import Wire
+from board  import Board
+from config import Config
+from memory import Memory
+
+from components.gate  import Gate
+from components.port  import Port
+from components.clock import Clock
+from components.latch import Latch
 
 
 # analyze indexed data to build a logic circuit
